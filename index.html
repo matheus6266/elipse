@@ -1,0 +1,207 @@
+ <!DOCTYPE html>
+<html>
+    <head>
+        <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.13.5/xlsx.full.min.js"></script>
+        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.13.5/jszip.js"></script>
+    </head>
+    <body style="margin: 0; height: 100%;">
+        <div id="chart_div"></div>
+        <input type="file" id="fileUpload" />
+        <br>
+        <input type="button" id="upload" value="Upload" onclick="UploadProcess()" />
+        <script>
+            let teste_json;
+            let data_table;
+            let i_f=100;
+            let i=0;
+            let ready=0;
+            let chart;
+            let kmh_inferior=0;
+            let kmh_superior=0;
+            let step=0.250;// em segundos
+            let ww=800;
+            let hh=550;
+            let options = {
+                            colors: ['#b50b0b', '#0b22b5','#b50b0b'],
+                            width:ww,
+                            height:hh,
+                            orientation:'vertical',
+                            legend:{
+                                position:'none'
+                            },
+                            chartArea:{left:55,top:10,width:ww,height:hh},
+                            hAxis: {
+                                viewWindowMode:'explicit',
+                                viewWindow: {
+                                max:130,
+                                min:0
+                                },
+                                gridlines : {
+                                count : 13
+                                }
+                            },
+                            vAxis: {
+                                gridlines : {
+                                count : 0
+                                },
+                                viewWindow: {
+                                max:90,
+                                min:0
+                                },
+                            }
+                        };
+             function UploadProcess() {
+                //Reference the FileUpload element.
+                var fileUpload = document.getElementById("fileUpload");
+        
+                //Validate whether File is valid Excel file.
+                var regex = /^([a-zA-Z0-9\s_\\.\-:])+(.xls|.xlsx)$/;
+                if (regex.test(fileUpload.value.toLowerCase())) {
+                    if (typeof (FileReader) != "undefined") {
+                        var reader = new FileReader();
+                        //For Browsers other than IE.
+                        if (reader.readAsBinaryString) {
+                            console.log("aqui");
+                            reader.onload = function (e) {
+                                var workbook = XLSX.read(e.target.result, {
+                                    type: 'binary'
+                                });
+                        
+                                //get the name of First Sheet.
+                                var Sheet = workbook.SheetNames[0];
+                        
+                                //Read all rows from First Sheet into an JSON array.
+                                teste_json = XLSX.utils.sheet_to_row_object_array(workbook.Sheets[Sheet]);
+
+                                data_table = new google.visualization.DataTable();
+                                ready=1;
+                                i_f=teste_json.length;
+                                chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+                            };
+                            reader.readAsBinaryString(fileUpload.files[0]);
+                        } else {
+                            console.log("ou aqui");
+                            //For IE Browser.
+                            reader.onload = function (e) {
+                                var teste_jsonn = "";
+                                var bytes = new Uint8Array(e.target.result);
+                                for (var i = 0; i < bytes.byteLength; i++) {
+                                    teste_jsonn += String.fromCharCode(bytes[i]);
+                                }
+                                var workbook = XLSX.read(teste_jsonn, {
+                                    type: 'binary'
+                                });
+                        
+                                //get the name of First Sheet.
+                                var Sheet = workbook.SheetNames[0];
+                        
+                                //Read all rows from First Sheet into an JSON array.
+                                teste_json = XLSX.utils.sheet_to_row_object_array(workbook.Sheets[Sheet]);
+                                data_table = new google.visualization.DataTable();
+                                ready=1;
+                                i_f=teste_json.length;
+                                chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+                            };
+                            reader.readAsArrayBuffer(fileUpload.files[0]);
+                        }
+                    } else {
+                        alert("This browser does not support HTML5.");
+                    }
+                } else {
+                    alert("Please upload a valid Excel file.");
+                }
+            };
+
+            function drawChart(){
+                var passos=90;
+                if (ready==1){
+                    if(i==0){
+                        data_table.addColumn('number', 'time');
+                        data_table.addColumn('number', 'kmh_inferior');
+                        data_table.addColumn('number', 'kmh');
+                        data_table.addColumn('number', 'kmh_superior');
+                        for (var ii = 0; ii < 90; ii++) {
+                            if (ii==0){
+                                kmh_inferior=Math.min(teste_json[ii].kmh,teste_json[ii+1].kmh)-3.2;
+                                kmh_inferior=Math.max(0,kmh_inferior);
+                                kmh_superior=Math.max(teste_json[ii].kmh,teste_json[ii+1].kmh)+3.2;
+                                data_table.addRow([Number(teste_json[ii].time),kmh_inferior,Number(teste_json[ii].kmh),kmh_superior]);
+                            } else {
+                                kmh_inferior=Math.min(teste_json[ii-1].kmh,teste_json[ii].kmh,teste_json[ii+1].kmh)-3.2;
+                                kmh_inferior=Math.max(0,kmh_inferior);
+                                kmh_superior=Math.max(teste_json[ii-1].kmh,teste_json[ii].kmh,teste_json[ii+1].kmh)+3.2;
+                                data_table.addRow([Number(teste_json[ii].time),kmh_inferior,Number(teste_json[ii].kmh),kmh_superior]);
+                            };
+                        };
+                        i=ii+1;
+                        chart.draw(data_table, options);
+                        var btn1=document.getElementById('fileUpload');
+                        var btn2=document.getElementById('upload');
+                        btn1.style.display='none';
+                        btn2.style.display='none';
+                    }else {
+                        if (i<i_f-1){
+                            data_table.removeRow(0);
+                            kmh_inferior=Math.min(teste_json[i-1].kmh,teste_json[i].kmh,teste_json[i+1].kmh);
+                            kmh_inferior=kmh_inferior-3.2;
+                            kmh_inferior=Math.max(0,kmh_inferior);
+                            kmh_superior=Math.max(teste_json[i-1].kmh,teste_json[i].kmh,teste_json[i+1].kmh);
+                            kmh_superior=kmh_superior+3.2;
+                            data_table.addRow([Number(teste_json[i].time),kmh_inferior,Number(teste_json[i].kmh),kmh_superior]);
+                            console.log("%d|%f|%f|%f|%f",i,kmh_inferior,teste_json[i].kmh,kmh_superior);
+                            i=i+1;
+                            kmh_inferior=0;
+                            kmh_superior=0;
+                            chart.draw(data_table, options);
+                        }
+                    };
+                };
+            };
+            
+
+
+            function drawChart2(){
+                if (ready==1){
+                    if(i==0){
+                        data_table.addColumn('number', 'time');
+                        data_table.addColumn('number', 'kmh_inferior');
+                        data_table.addColumn('number', 'kmh');
+                        data_table.addColumn('number', 'kmh_superior');
+                        for (var ii = 0; ii < teste_json.length-1; ii++) {
+                            if (ii==0){
+                                kmh_inferior=Math.min(teste_json[ii].kmh,teste_json[ii+1].kmh)-3.2;
+                                kmh_inferior=Math.max(0,kmh_inferior);
+                                kmh_superior=Math.max(teste_json[ii].kmh,teste_json[ii+1].kmh)+3.2;
+                                data_table.addRow([Number(teste_json[ii].time),kmh_inferior,Number(teste_json[ii].kmh),kmh_superior]);
+                            } else {
+                                kmh_inferior=Math.min(teste_json[ii-1].kmh,teste_json[ii].kmh,teste_json[ii+1].kmh)-3.2;
+                                kmh_inferior=Math.max(0,kmh_inferior);
+                                kmh_superior=Math.max(teste_json[ii-1].kmh,teste_json[ii].kmh,teste_json[ii+1].kmh)+3.2;
+                                data_table.addRow([Number(teste_json[ii].time),kmh_inferior,Number(teste_json[ii].kmh),kmh_superior]);
+                            };
+                        };
+                        i=1;
+                        chart.draw(data_table, options);
+                        var btn1=document.getElementById('fileUpload');
+                        var btn2=document.getElementById('upload');
+                        btn1.style.display='none';
+                        btn2.style.display='none';
+                    }else {
+                        if (i<(teste_json.length-91)*(1/step)){
+                            options.vAxis.viewWindow.min=(i-1)*step;
+                            options.vAxis.viewWindow.max=(i-1)*step+90;
+                            chart.draw(data_table,options);
+                            i=i+1;
+                        };
+                    };
+                };
+            };
+            setInterval(drawChart2,step*1000);
+
+            google.charts.load('current', {packages: ['corechart', 'line']});
+            //google.charts.setOnLoadCallback(drawCrosshairs);
+        </script>
+
+    </body>
+</html> 
