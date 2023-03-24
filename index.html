@@ -1,15 +1,45 @@
  <!DOCTYPE html>
 <html>
     <head>
+        <style> 
+            input[type="file"] {
+                display: none;
+                float: left;
+
+            }
+            input[type="button"] {
+                display: none;
+                float: left;
+            }
+            label {
+                padding: 20px 10px;
+                margin: 10px 10px;
+                width: 200px;
+                background-color: #333;
+                color: #FFF;
+                text-transform: uppercase;
+                text-align: center;
+                display: block;
+                margin-top: 10px;
+                cursor: pointer;
+                float: left;
+            }
+        </style>
         <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
         <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.13.5/xlsx.full.min.js"></script>
         <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.13.5/jszip.js"></script>
     </head>
     <body style="margin: 0; height: 100%;">
         <div id="chart_div"></div>
-        <input type="file" id="fileUpload" />
-        <br>
-        <input type="button" id="upload" value="Upload" onclick="UploadProcess()" />
+        <div>
+            <label for="fileUpload" id="label1">Escolher Arquivo</label>
+            <input type="file" id="fileUpload" />
+        </div>
+        <div>
+            <label for="upload" id="label2">Iniciar Teste</label>
+            <input type="button" id="upload" value="Upload" onclick="UploadProcess()" />
+        </div>
+        
         <script>
             let teste_json;
             let data_table;
@@ -20,41 +50,70 @@
             let kmh_inferior=0;
             let kmh_superior=0;
             let step=0.250;// em segundos
-            let ww=800;
-            let hh=550;
+            let ww=980;
+            let hh=775;
+            let limit=0;
+            let ii=0;
+            let iii=0;
+            let velocidade=0;
             let options = {
                             colors: ['#b50b0b', '#0b22b5','#b50b0b'],
                             width:ww,
                             height:hh,
+                            //axes: {
+                            //    x: {
+                            //        0: {side: 'botom'}
+                            //    }      
+                            //},
                             orientation:'vertical',
-                            legend:{
-                                position:'none'
-                            },
-                            chartArea:{left:55,top:10,width:ww,height:hh},
+                            //legend:{
+                            //    position:'none'
+                            //},
+                            chartArea:{left:55,top:10,width:ww,height:hh-60},
                             hAxis: {
                                 viewWindowMode:'explicit',
                                 viewWindow: {
-                                max:130,
+                                max:140,
                                 min:0
                                 },
                                 gridlines : {
-                                count : 13
+                                count : 14
                                 }
                             },
                             vAxis: {
                                 gridlines : {
-                                count : 0
+                                count : 9
                                 },
                                 viewWindow: {
                                 max:90,
                                 min:0
                                 },
+                            },
+                            seriesType: 'line',
+                            series: {
+                                3  : {type: 'scatter'},
+                                4 : {type:'bubble'}
+                            },
+                            axes: {
+                                x: {
+                                    0: { side: 'top'}
+                                },
                             }
+
                         };
-             function UploadProcess() {
+            let socket = new WebSocket("ws://169.254.62.198:6124");
+            socket.onopen = function(e) {
+                //alert("[open] Connection established");
+            };
+
+            socket.onmessage = function(event) {
+                velocidade=JSON.parse(event.data)["Velocidade_kmh"];
+            };
+            function UploadProcess() {
+                document.getElementById('label1').style.visibility = 'hidden'
+                document.getElementById('label2').style.visibility = 'hidden'
                 //Reference the FileUpload element.
                 var fileUpload = document.getElementById("fileUpload");
-        
                 //Validate whether File is valid Excel file.
                 var regex = /^([a-zA-Z0-9\s_\\.\-:])+(.xls|.xlsx)$/;
                 if (regex.test(fileUpload.value.toLowerCase())) {
@@ -62,7 +121,6 @@
                         var reader = new FileReader();
                         //For Browsers other than IE.
                         if (reader.readAsBinaryString) {
-                            console.log("aqui");
                             reader.onload = function (e) {
                                 var workbook = XLSX.read(e.target.result, {
                                     type: 'binary'
@@ -81,7 +139,6 @@
                             };
                             reader.readAsBinaryString(fileUpload.files[0]);
                         } else {
-                            console.log("ou aqui");
                             //For IE Browser.
                             reader.onload = function (e) {
                                 var teste_jsonn = "";
@@ -113,54 +170,6 @@
                 }
             };
 
-            function drawChart(){
-                var passos=90;
-                if (ready==1){
-                    if(i==0){
-                        data_table.addColumn('number', 'time');
-                        data_table.addColumn('number', 'kmh_inferior');
-                        data_table.addColumn('number', 'kmh');
-                        data_table.addColumn('number', 'kmh_superior');
-                        for (var ii = 0; ii < 90; ii++) {
-                            if (ii==0){
-                                kmh_inferior=Math.min(teste_json[ii].kmh,teste_json[ii+1].kmh)-3.2;
-                                kmh_inferior=Math.max(0,kmh_inferior);
-                                kmh_superior=Math.max(teste_json[ii].kmh,teste_json[ii+1].kmh)+3.2;
-                                data_table.addRow([Number(teste_json[ii].time),kmh_inferior,Number(teste_json[ii].kmh),kmh_superior]);
-                            } else {
-                                kmh_inferior=Math.min(teste_json[ii-1].kmh,teste_json[ii].kmh,teste_json[ii+1].kmh)-3.2;
-                                kmh_inferior=Math.max(0,kmh_inferior);
-                                kmh_superior=Math.max(teste_json[ii-1].kmh,teste_json[ii].kmh,teste_json[ii+1].kmh)+3.2;
-                                data_table.addRow([Number(teste_json[ii].time),kmh_inferior,Number(teste_json[ii].kmh),kmh_superior]);
-                            };
-                        };
-                        i=ii+1;
-                        chart.draw(data_table, options);
-                        var btn1=document.getElementById('fileUpload');
-                        var btn2=document.getElementById('upload');
-                        btn1.style.display='none';
-                        btn2.style.display='none';
-                    }else {
-                        if (i<i_f-1){
-                            data_table.removeRow(0);
-                            kmh_inferior=Math.min(teste_json[i-1].kmh,teste_json[i].kmh,teste_json[i+1].kmh);
-                            kmh_inferior=kmh_inferior-3.2;
-                            kmh_inferior=Math.max(0,kmh_inferior);
-                            kmh_superior=Math.max(teste_json[i-1].kmh,teste_json[i].kmh,teste_json[i+1].kmh);
-                            kmh_superior=kmh_superior+3.2;
-                            data_table.addRow([Number(teste_json[i].time),kmh_inferior,Number(teste_json[i].kmh),kmh_superior]);
-                            console.log("%d|%f|%f|%f|%f",i,kmh_inferior,teste_json[i].kmh,kmh_superior);
-                            i=i+1;
-                            kmh_inferior=0;
-                            kmh_superior=0;
-                            chart.draw(data_table, options);
-                        }
-                    };
-                };
-            };
-            
-
-
             function drawChart2(){
                 if (ready==1){
                     if(i==0){
@@ -168,17 +177,31 @@
                         data_table.addColumn('number', 'kmh_inferior');
                         data_table.addColumn('number', 'kmh');
                         data_table.addColumn('number', 'kmh_superior');
-                        for (var ii = 0; ii < teste_json.length-1; ii++) {
+                        data_table.addColumn('number', 'velocidade');
+                        data_table.addColumn({type:'string', role:'annotation'});
+                        for (ii = 0; ii < 90; ii++) {
                             if (ii==0){
                                 kmh_inferior=Math.min(teste_json[ii].kmh,teste_json[ii+1].kmh)-3.2;
                                 kmh_inferior=Math.max(0,kmh_inferior);
                                 kmh_superior=Math.max(teste_json[ii].kmh,teste_json[ii+1].kmh)+3.2;
-                                data_table.addRow([Number(teste_json[ii].time),kmh_inferior,Number(teste_json[ii].kmh),kmh_superior]);
+                                data_table.addRow([Number(teste_json[ii].time),kmh_inferior,Number(teste_json[ii].kmh),kmh_superior,-5,teste_json[ii+1].marcha]);
                             } else {
                                 kmh_inferior=Math.min(teste_json[ii-1].kmh,teste_json[ii].kmh,teste_json[ii+1].kmh)-3.2;
                                 kmh_inferior=Math.max(0,kmh_inferior);
                                 kmh_superior=Math.max(teste_json[ii-1].kmh,teste_json[ii].kmh,teste_json[ii+1].kmh)+3.2;
-                                data_table.addRow([Number(teste_json[ii].time),kmh_inferior,Number(teste_json[ii].kmh),kmh_superior]);
+                                var ind=data_table.getNumberOfRows()-1;
+                                var km_dif=Number(teste_json[ii].kmh)-data_table.getValue(ind,2);
+                                var kminf_dif=kmh_inferior-data_table.getValue(ind,1);
+                                var kmsup_dif=kmh_superior-data_table.getValue(ind,3);
+                                var marcha=-5;
+                                console.log(teste_json[ii].marcha);
+                                if (teste_json[ii].marcha!=undefined){
+                                    marcha=Number(teste_json[ii].kmh);
+                                }
+                                data_table.addRow([Number(teste_json[ii].time)-0.75,kmh_inferior-kminf_dif*0.75,Number(teste_json[ii].kmh)-km_dif*0.75,kmh_superior-kmsup_dif*0.75,-5,teste_json[ii].marcha]);
+                                data_table.addRow([Number(teste_json[ii].time)-0.5,kmh_inferior-kminf_dif*0.5,Number(teste_json[ii].kmh)-km_dif*0.5,kmh_superior-kmsup_dif*0.5,-5,teste_json[ii].marcha]);
+                                data_table.addRow([Number(teste_json[ii].time)-0.25,kmh_inferior-kminf_dif*0.25,Number(teste_json[ii].kmh)-km_dif*0.25,kmh_superior-kmsup_dif*0.25,-5,teste_json[ii].marcha]);
+                                data_table.addRow([Number(teste_json[ii].time),kmh_inferior,Number(teste_json[ii].kmh),kmh_superior,marcha,teste_json[ii].marcha]);
                             };
                         };
                         i=1;
@@ -187,17 +210,50 @@
                         var btn2=document.getElementById('upload');
                         btn1.style.display='none';
                         btn2.style.display='none';
+                        limit=teste_json.length*4-1;
                     }else {
-                        if (i<(teste_json.length-91)*(1/step)){
-                            options.vAxis.viewWindow.min=(i-1)*step;
-                            options.vAxis.viewWindow.max=(i-1)*step+90;
+                        if (i<(limit)){
+                            if (iii==0){
+                                ii++;
+                                
+                                kmh_inferior=Math.min(teste_json[ii-1].kmh,teste_json[ii].kmh,teste_json[ii+1].kmh)-3.2;
+                                kmh_inferior=Math.max(0,kmh_inferior);
+                                kmh_superior=Math.max(teste_json[ii-1].kmh,teste_json[ii].kmh,teste_json[ii+1].kmh)+3.2;
+                                var ind=data_table.getNumberOfRows()-1;
+                                var km_dif=Number(teste_json[ii].kmh)-data_table.getValue(ind,2);
+                                var kminf_dif=kmh_inferior-data_table.getValue(ind,1);
+                                var kmsup_dif=kmh_superior-data_table.getValue(ind,3);
+                                var marcha=-5;
+                                data_table.addRow([Number(teste_json[ii].time)-0.75,kmh_inferior-kminf_dif*0.75,Number(teste_json[ii].kmh)-km_dif*0.75,kmh_superior-kmsup_dif*0.75,-5,teste_json[ii+1].marcha]);
+                                data_table.addRow([Number(teste_json[ii].time)-0.5,kmh_inferior-kminf_dif*0.5,Number(teste_json[ii].kmh)-km_dif*0.5,kmh_superior-kmsup_dif*0.5,-5,teste_json[ii+1].marcha]);
+                                data_table.addRow([Number(teste_json[ii].time)-0.25,kmh_inferior-kminf_dif*0.25,Number(teste_json[ii].kmh)-km_dif*0.25,kmh_superior-kmsup_dif*0.25,-5,teste_json[ii+1].marcha]);
+                                var marcha=-5;
+                                console.log(teste_json[ii].marcha);
+                                if (teste_json[ii].marcha!=undefined){
+                                    marcha=Number(teste_json[ii].kmh);
+                                }
+                                data_table.addRow([Number(teste_json[ii].time),kmh_inferior,Number(teste_json[ii].kmh),kmh_superior,marcha,teste_json[ii].marcha]);                                                            
+                            };
+                            data_table.removeRow(0);
+                            socket.send("mortadela");
+                            data_table.setCell(4,4,velocidade);
+                            data_table.setCell(3,4,-5);
+                            data_table.setCell(2,4,-5);
+                            data_table.setCell(1,4,-5);
+                            data_table.setCell(0,4,-5);
+                            options.vAxis.viewWindow.min=i*0.25;
+                            options.vAxis.viewWindow.max=(i*0.25+90);
                             chart.draw(data_table,options);
                             i=i+1;
+                            iii++;
+                            if (iii>3){
+                                iii=0;
+                            }
                         };
                     };
                 };
             };
-            setInterval(drawChart2,step*1000);
+            setInterval(drawChart2,250);
 
             google.charts.load('current', {packages: ['corechart', 'line']});
             //google.charts.setOnLoadCallback(drawCrosshairs);
